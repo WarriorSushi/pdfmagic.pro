@@ -13,9 +13,7 @@ import { useEffect } from 'react'
 // Configure worker on component load
 pdfjs.GlobalWorkerOptions.workerSrc = '/pdf.worker.min.mjs'
 
-// Add styles for react-pdf
-import 'react-pdf/dist/esm/Page/AnnotationLayer.css'
-import 'react-pdf/dist/esm/Page/TextLayer.css'
+// React-PDF styles handled by Next.js global CSS
 
 export function PDFViewer() {
   const { currentDocument, currentPageIndex, setCurrentPageIndex, selectedPages, setEditingMode } = usePDFStore()

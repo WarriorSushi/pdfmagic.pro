@@ -84,3 +84,22 @@ body {
   margin: 0;
   padding: 0;
 }
+
+/* React-PDF basic styles */
+.react-pdf__Document {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+}
+
+.react-pdf__Page {
+  position: relative;
+  border: 1px solid #ccc;
+  background-color: white;
+}
+
+.react-pdf__Page canvas {
+  display: block;
+  width: 100% !important;
+  height: auto !important;
+}
