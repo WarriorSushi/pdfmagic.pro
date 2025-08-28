@@ -60,10 +60,10 @@ export function PageThumbnails() {
                       size="sm"
                       variant="destructive"
                       className="h-8 px-3 text-xs shadow-lg"
-                      onClick={(e) => {
+                      onClick={async (e) => {
                         e.stopPropagation()
                         console.log('Deleting page:', page.id)
-                        deletePage(page.id)
+                        await deletePage(page.id)
                         setDeleteConfirm(null)
                       }}
                     >

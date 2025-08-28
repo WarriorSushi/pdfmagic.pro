@@ -32,7 +32,7 @@ interface PDFStore {
   togglePageSelection: (pageId: string) => void
   setEditingMode: (mode: 'view' | 'edit' | 'cover' | 'text') => void
   setProcessing: (processing: boolean) => void
-  deletePage: (pageId: string) => void
+  deletePage: (pageId: string) => Promise<void>
   markAsCover: (pageId: string) => void
   setCurrentPageIndex: (index: number) => void
   viewPageById: (pageId: string) => void
@@ -71,11 +71,12 @@ export const usePDFStore = create<PDFStore>((set, get) => ({
   
   setProcessing: (processing) => set({ isProcessing: processing }),
   
-  deletePage: (pageId) => set((state) => {
+  deletePage: async (pageId) => {
+    const state = get()
     console.log('Store deletePage called with:', pageId)
     if (!state.currentDocument) {
-      console.log('No current document, returning state')
-      return state
+      console.log('No current document, returning')
+      return
     }
     
     const oldPages = state.currentDocument.pages
@@ -83,7 +84,7 @@ export const usePDFStore = create<PDFStore>((set, get) => ({
     
     if (oldPages.length <= 1) {
       console.log('Cannot delete last page')
-      return state
+      return
     }
     
     const delIndex = oldPages.findIndex(p => p.id === pageId)
@@ -91,31 +92,82 @@ export const usePDFStore = create<PDFStore>((set, get) => ({
     
     if (delIndex === -1) {
       console.log('Page not found')
-      return state
+      return
     }
     
-    const pages = oldPages.filter(page => page.id !== pageId)
-    const totalPages = state.currentDocument.totalPages - 1
-    let currentPageIndex = state.currentPageIndex
-    
-    if (delIndex !== -1) {
-      if (currentPageIndex > delIndex) currentPageIndex -= 1
-      if (currentPageIndex >= pages.length) currentPageIndex = Math.max(0, pages.length - 1)
+    try {
+      // Import pdf-lib for PDF manipulation
+      const { PDFDocument: PDFLibDocument } = await import('pdf-lib')
+      
+      // Load the original PDF
+      const existingPdfBytes = await state.currentDocument.file.arrayBuffer()
+      const pdfDoc = await PDFLibDocument.load(existingPdfBytes)
+      
+      // Remove the page from PDF
+      pdfDoc.removePage(delIndex)
+      
+      // Save the modified PDF
+      const newPdfBytes = await pdfDoc.save()
+      const newFile = new File([newPdfBytes], state.currentDocument.name, { type: 'application/pdf' })
+      
+      // Update pages array and indices
+      const pages = oldPages.filter(page => page.id !== pageId)
+      const totalPages = pages.length
+      let currentPageIndex = state.currentPageIndex
+      
+      if (delIndex !== -1) {
+        if (currentPageIndex > delIndex) currentPageIndex -= 1
+        if (currentPageIndex >= pages.length) currentPageIndex = Math.max(0, pages.length - 1)
+      }
+      
+      // Update page numbers to be sequential
+      const updatedPages = pages.map((page, index) => ({
+        ...page,
+        pageNumber: index + 1
+      }))
+      
+      console.log('New pages count:', updatedPages.length)
+      console.log('New current page index:', currentPageIndex)
+      
+      set({
+        currentDocument: {
+          ...state.currentDocument,
+          file: newFile,
+          pages: updatedPages,
+          totalPages
+        },
+        selectedPages: state.selectedPages.filter(id => id !== pageId),
+        currentPageIndex
+      })
+      
+    } catch (error) {
+      console.error('Failed to delete page from PDF:', error)
+      // Fallback to just removing from state if PDF manipulation fails
+      const pages = oldPages.filter(page => page.id !== pageId)
+      const totalPages = pages.length
+      let currentPageIndex = state.currentPageIndex
+      
+      if (delIndex !== -1) {
+        if (currentPageIndex > delIndex) currentPageIndex -= 1
+        if (currentPageIndex >= pages.length) currentPageIndex = Math.max(0, pages.length - 1)
+      }
+      
+      const updatedPages = pages.map((page, index) => ({
+        ...page,
+        pageNumber: index + 1
+      }))
+      
+      set({
+        currentDocument: {
+          ...state.currentDocument,
+          pages: updatedPages,
+          totalPages
+        },
+        selectedPages: state.selectedPages.filter(id => id !== pageId),
+        currentPageIndex
+      })
     }
-    
-    console.log('New pages count:', pages.length)
-    console.log('New current page index:', currentPageIndex)
-    
-    return {
-      currentDocument: {
-        ...state.currentDocument,
-        pages,
-        totalPages
-      },
-      selectedPages: state.selectedPages.filter(id => id !== pageId),
-      currentPageIndex
-    }
-  }),
+  },
   
   markAsCover: (pageId) => set((state) => {
     if (!state.currentDocument) return state
