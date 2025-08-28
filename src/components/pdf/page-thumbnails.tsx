@@ -49,7 +49,7 @@ export function PageThumbnails() {
               <div className="relative">
                 <img
                   src={page.thumbnail}
-                  alt={`Page ${page.pageNumber}`}
+                  alt={`Page ${page.pageNumber} thumbnail`}
                   className="w-full h-24 object-contain bg-white rounded border"
                 />
                 
