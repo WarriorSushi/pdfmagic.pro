@@ -108,7 +108,7 @@ export const usePDFStore = create<PDFStore>((set, get) => ({
       
       // Save the modified PDF
       const newPdfBytes = await pdfDoc.save()
-      const newFile = new File([newPdfBytes], state.currentDocument.name, { type: 'application/pdf' })
+      const newFile = new File([new Uint8Array(newPdfBytes)], state.currentDocument.name, { type: 'application/pdf' })
       
       // Update pages array and indices
       const pages = oldPages.filter(page => page.id !== pageId)
@@ -228,7 +228,7 @@ export const usePDFStore = create<PDFStore>((set, get) => ({
       page.drawImage(embedded, { x: 0, y: 0, width, height })
 
       const newPdfBytes = await pdfDoc.save()
-      const newFile = new File([newPdfBytes], doc.name, { type: 'application/pdf' })
+      const newFile = new File([new Uint8Array(newPdfBytes)], doc.name, { type: 'application/pdf' })
 
       set({
         currentDocument: {
