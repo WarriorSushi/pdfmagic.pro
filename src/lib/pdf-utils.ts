@@ -185,7 +185,7 @@ export async function exportPDF(document: PDFDocument, selectedPages: string[]):
     
     // Save the new PDF
     const pdfBytes = await newPdf.save()
-    return new Blob([pdfBytes], { type: 'application/pdf' })
+    return new Blob([new Uint8Array(pdfBytes)], { type: 'application/pdf' })
     
   } catch (error) {
     console.error('Failed to export PDF:', error)
