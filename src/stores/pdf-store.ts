@@ -7,6 +7,7 @@ export interface PDFPage {
   thumbnail: string
   isSelected: boolean
   isCover: boolean
+  editedDataUrl?: string // Store edited page data
 }
 
 export interface PDFDocument {
@@ -20,7 +21,7 @@ export interface PDFDocument {
 interface PDFStore {
   currentDocument: PDFDocument | null
   selectedPages: string[]
-  editingMode: 'view' | 'edit' | 'cover'
+  editingMode: 'view' | 'edit' | 'cover' | 'text'
   isProcessing: boolean
   currentPageIndex: number
   
@@ -29,7 +30,7 @@ interface PDFStore {
   selectPage: (pageId: string) => void
   deselectPage: (pageId: string) => void
   togglePageSelection: (pageId: string) => void
-  setEditingMode: (mode: 'view' | 'edit' | 'cover') => void
+  setEditingMode: (mode: 'view' | 'edit' | 'cover' | 'text') => void
   setProcessing: (processing: boolean) => void
   deletePage: (pageId: string) => void
   markAsCover: (pageId: string) => void
@@ -181,16 +182,16 @@ export const usePDFStore = create<PDFStore>((set, get) => ({
         currentDocument: {
           ...doc,
           file: newFile,
-          pages: doc.pages.map((p, idx) => idx === pageIndex ? { ...p, thumbnail: dataUrl } : p)
+          pages: doc.pages.map((p, idx) => idx === pageIndex ? { ...p, thumbnail: dataUrl, editedDataUrl: dataUrl } : p)
         }
       })
     } catch (e) {
       console.error('Failed to apply cover edit to PDF', e)
-      // Fallback: at least update thumbnail
+      // Fallback: at least update thumbnail and edited data
       set((s) => s.currentDocument ? ({
         currentDocument: {
           ...s.currentDocument,
-          pages: s.currentDocument.pages.map((p, idx) => idx === pageIndex ? { ...p, thumbnail: dataUrl } : p)
+          pages: s.currentDocument.pages.map((p, idx) => idx === pageIndex ? { ...p, thumbnail: dataUrl, editedDataUrl: dataUrl } : p)
         }
       }) : s)
     }

@@ -1,9 +1,9 @@
 'use client'
 
-import { useState } from 'react'
+import { useState, useEffect, useRef } from 'react'
 import { usePDFStore } from '@/stores/pdf-store'
 import { Button } from '@/components/ui/button'
-import { ZoomIn, ZoomOut, RotateCw, Download } from 'lucide-react'
+import { ZoomIn, ZoomOut, RotateCw, Download, Type, X } from 'lucide-react'
 import { Document, Page, pdfjs } from 'react-pdf'
 import { exportPDF } from '@/lib/pdf-utils'
 
@@ -11,9 +11,10 @@ import { exportPDF } from '@/lib/pdf-utils'
 pdfjs.GlobalWorkerOptions.workerSrc = '/pdf.worker.min.mjs'
 
 export function PDFViewer() {
-  const { currentDocument, currentPageIndex, setCurrentPageIndex, selectedPages } = usePDFStore()
+  const { currentDocument, currentPageIndex, setCurrentPageIndex, selectedPages, setEditingMode } = usePDFStore()
   const [zoom, setZoom] = useState(1)
   const [isExporting, setIsExporting] = useState(false)
+  const pageRef = useRef<HTMLDivElement>(null)
 
   const handleExport = async () => {
     if (!currentDocument) return
@@ -36,6 +37,7 @@ export function PDFViewer() {
       setIsExporting(false)
     }
   }
+
 
   if (!currentDocument || currentDocument.pages.length === 0) {
     return (
@@ -88,15 +90,29 @@ export function PDFViewer() {
       {/* PDF Display Area */}
       <div className="flex-1 overflow-auto bg-muted/10 p-8">
         <div className="flex justify-center">
-          <div className="bg-white shadow-lg">
-            <Document file={currentDocument.file} onLoadError={console.error} loading={<div className="p-6 text-sm text-muted-foreground">Loading PDF…</div>}>
-              <Page
-                pageNumber={currentPageIndex + 1}
-                scale={zoom}
-                renderAnnotationLayer={false}
-                renderTextLayer={false}
+          <div className="bg-white shadow-lg relative" ref={pageRef}>
+            {currentDocument.pages[currentPageIndex]?.editedDataUrl ? (
+              // Show edited page if available
+              <img 
+                src={currentDocument.pages[currentPageIndex].editedDataUrl} 
+                alt={`Edited page ${currentPageIndex + 1}`}
+                style={{ 
+                  width: `${600 * zoom}px`,
+                  height: 'auto',
+                  display: 'block'
+                }}
               />
-            </Document>
+            ) : (
+              // Show original PDF page
+              <Document file={currentDocument.file} onLoadError={console.error} loading={<div className="p-6 text-sm text-muted-foreground">Loading PDF…</div>}>
+                <Page
+                  pageNumber={currentPageIndex + 1}
+                  scale={zoom}
+                  renderAnnotationLayer={false}
+                  renderTextLayer={false}
+                />
+              </Document>
+            )}
           </div>
         </div>
       </div>

@@ -6,9 +6,10 @@ import { Button } from '@/components/ui/button'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { Slider } from '@/components/ui/slider'
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
-import { Type, Image, Square, Circle, Undo, Redo, Save, Trash2, Palette } from 'lucide-react'
+import { Type, Image, Square, Circle, Undo, Redo, Save, Trash2, Palette, FileText } from 'lucide-react'
 import { usePDFStore } from '@/stores/pdf-store'
 import { renderPDFPageHighRes } from '@/lib/pdf-utils'
+import { extractTextFromPDF, type ExtractedText } from '@/lib/text-extraction'
 
 export function CoverEditor() {
   const canvasRef = useRef<HTMLCanvasElement>(null)
@@ -18,6 +19,8 @@ export function CoverEditor() {
   const [selectedColor, setSelectedColor] = useState<string>('#3b82f6')
   const [fontSize, setFontSize] = useState<number>(24)
   const [fontFamily, setFontFamily] = useState<string>('Arial')
+  const [isTextEditMode, setIsTextEditMode] = useState(false)
+  const [extractedTexts, setExtractedTexts] = useState<ExtractedText[]>([])
   const historyRef = useRef<string[]>([])
   const redoRef = useRef<string[]>([])
   const suppressHistoryRef = useRef(false)
@@ -70,24 +73,11 @@ export function CoverEditor() {
 
         console.log('High-res page loaded:', img.width, 'x', img.height)
 
-        // Resize canvas to fit image
-        const maxW = 600
-        const maxH = 800
-        const scale = Math.min(maxW / (img.width || 1), maxH / (img.height || 1))
-        const newWidth = Math.round((img.width || 1) * scale)
-        const newHeight = Math.round((img.height || 1) * scale)
+        // Calculate scale to fit canvas
+        const canvasWidth = 600
+        const canvasHeight = 800
+        const scale = Math.min(canvasWidth / img.width!, canvasHeight / img.height!)
         
-        canvas.setDimensions({ width: newWidth, height: newHeight })
-        
-        // Remove old background
-        const objects = canvas.getObjects()
-        objects.forEach(obj => {
-          if ((obj as any).isBackground) {
-            canvas.remove(obj)
-          }
-        })
-        
-        // Add new background
         img.set({
           left: 0,
           top: 0,
@@ -100,8 +90,33 @@ export function CoverEditor() {
         
         canvas.add(img)
         try { (canvas as any).sendToBack?.(img) } catch { (canvas as any).moveTo?.(img, 0) }
-        canvas.requestRenderAll()
         
+        // Extract text if in text edit mode
+        if (isTextEditMode) {
+          const texts = await extractTextFromPDF(currentDocument.file, currentPageIndex + 1)
+          setExtractedTexts(texts)
+          
+          // Add text objects to canvas
+          texts.forEach(textItem => {
+            const fabricText = new FabricTextbox(textItem.text, {
+              left: textItem.x * scale,
+              top: textItem.y * scale,
+              width: textItem.width * scale,
+              fontSize: textItem.fontSize * scale,
+              fontFamily: 'Arial',
+              fill: '#000000',
+              backgroundColor: 'rgba(255, 255, 0, 0.2)',
+              borderColor: 'rgba(255, 255, 0, 0.8)',
+              cornerColor: 'rgba(255, 255, 0, 0.8)',
+              transparentCorners: false,
+              hasRotatingPoint: false
+            })
+            
+            canvas.add(fabricText)
+          })
+        }
+        
+        canvas.requestRenderAll()
         console.log('High-res background set successfully')
         
         // Initialize history
@@ -118,7 +133,7 @@ export function CoverEditor() {
     return () => {
       aborted = true
     }
-  }, [canvas, currentDocument?.file, pageNumber])
+  }, [canvas, currentDocument, currentPageIndex, isTextEditMode])
 
   const pushHistory = () => {
     if (!canvas || suppressHistoryRef.current) return
@@ -424,22 +439,79 @@ export function CoverEditor() {
             <CardTitle className="text-lg">Tools</CardTitle>
           </CardHeader>
           <CardContent>
-            <div className="grid grid-cols-2 gap-2">
-              <Button variant="outline" size="sm" onClick={addText}>
-                <Type className="h-4 w-4 mr-2" />
+            <div className="grid grid-cols-2 gap-2 mb-4">
+              <Button 
+                size="sm" 
+                variant={isTextEditMode ? "default" : "outline"}
+                onClick={async () => {
+                  const newMode = !isTextEditMode
+                  setIsTextEditMode(newMode)
+                  
+                  if (!canvas || !currentDocument || currentPageIndex === null) return
+                  
+                  // Clear existing objects except background
+                  canvas.getObjects().forEach(obj => {
+                    if (!(obj as any).isBackground) {
+                      canvas.remove(obj)
+                    }
+                  })
+                  
+                  if (newMode) {
+                    // Extract and add text objects
+                    try {
+                      const texts = await extractTextFromPDF(currentDocument.file, currentPageIndex + 1)
+                      setExtractedTexts(texts)
+                      
+                      // Get background scale
+                      const backgroundImg = canvas.getObjects().find(obj => (obj as any).isBackground)
+                      const scale = backgroundImg ? (backgroundImg as any).scaleX : 1
+                      
+                      texts.forEach(textItem => {
+                        const fabricText = new FabricTextbox(textItem.text, {
+                          left: textItem.x * scale,
+                          top: textItem.y * scale,
+                          width: textItem.width * scale,
+                          fontSize: Math.max(textItem.fontSize * scale, 8),
+                          fontFamily: 'Arial',
+                          fill: '#000000',
+                          backgroundColor: 'rgba(255, 255, 0, 0.2)',
+                          borderColor: 'rgba(255, 255, 0, 0.8)',
+                          cornerColor: 'rgba(255, 255, 0, 0.8)',
+                          transparentCorners: false,
+                          hasRotatingPoint: false
+                        })
+                        
+                        canvas.add(fabricText)
+                      })
+                      
+                      canvas.requestRenderAll()
+                    } catch (error) {
+                      console.error('Failed to extract text:', error)
+                    }
+                  } else {
+                    canvas.requestRenderAll()
+                  }
+                }}
+                className="col-span-2"
+              >
+                <FileText className="h-4 w-4 mr-2" />
+                {isTextEditMode ? 'Exit Text Edit' : 'Edit Text'}
+              </Button>
+              <Button size="sm" onClick={addText}>
+                <Type className="h-4 w-4 mr-1" />
                 Text
               </Button>
-              <Button variant="outline" size="sm" onClick={onImageUploadClick}>
-                <Image className="h-4 w-4 mr-2" />
-                Image
+              <Button size="sm" onClick={addRectangle}>
+                <Square className="h-4 w-4 mr-1" />
+                Rect
               </Button>
-              <Button variant="outline" size="sm" onClick={addRectangle}>
-                <Square className="h-4 w-4 mr-2" />
-                Rectangle
-              </Button>
-              <Button variant="outline" size="sm" onClick={addCircle}>
-                <Circle className="h-4 w-4 mr-2" />
+              <Button size="sm" onClick={addCircle}>
+                <Circle className="h-4 w-4 mr-1" />
                 Circle
+              </Button>
+              <Button size="sm" onClick={() => fileInputRef.current?.click()}>
+                <Image className="h-4 w-4 mr-1" />
+                Image
               </Button>
             </div>
             
