@@ -10,6 +10,8 @@ import { Type, Image, Square, Circle, Undo, Redo, Save, Trash2, Palette, FileTex
 import { usePDFStore } from '@/stores/pdf-store'
 import { renderPDFPageHighRes } from '@/lib/pdf-utils'
 import { extractTextFromPDF, type ExtractedText } from '@/lib/text-extraction'
+import { MobileBottomBar } from '@/components/mobile/mobile-bottom-bar'
+import { TemplateModal } from '@/components/mobile/template-modal'
 
 export function CoverEditor() {
   const canvasRef = useRef<HTMLCanvasElement>(null)
@@ -21,9 +23,12 @@ export function CoverEditor() {
   const [fontFamily, setFontFamily] = useState<string>('Arial')
   const [isTextEditMode, setIsTextEditMode] = useState(false)
   const [extractedTexts, setExtractedTexts] = useState<ExtractedText[]>([])
+  const [history, setHistory] = useState<string[]>([])
+  const [historyIndex, setHistoryIndex] = useState(-1)
+  const [showTemplateModal, setShowTemplateModal] = useState(false)
+  const suppressHistoryRef = useRef(false)
   const historyRef = useRef<string[]>([])
   const redoRef = useRef<string[]>([])
-  const suppressHistoryRef = useRef(false)
   const { currentDocument, currentPageIndex, setEditingMode, applyCoverEditToPage } = usePDFStore()
 
   // Initialize canvas once
@@ -307,16 +312,23 @@ export function CoverEditor() {
 
   const updateSelectedObjectColor = (color: string) => {
     if (!canvas) return
-    
     const activeObject = canvas.getActiveObject()
-    if (activeObject) {
+    if (!activeObject) return
+    
+    if (activeObject.type === 'textbox') {
       activeObject.set('fill', color)
-      if (activeObject.type === 'textbox') {
-        activeObject.set('fill', color)
-      }
-      canvas.requestRenderAll()
-      pushHistory()
+    } else if (activeObject.type === 'rect' || activeObject.type === 'circle') {
+      activeObject.set('fill', color)
     }
+    
+    canvas.requestRenderAll()
+    pushHistory()
+  }
+
+  const handleTemplateSelect = (templateId: string) => {
+    console.log('Selected template:', templateId)
+    // TODO: Implement template loading logic
+    setSelectedTemplate(templateId)
   }
 
   const updateSelectedTextSize = (size: number) => {
@@ -419,20 +431,20 @@ export function CoverEditor() {
   ]
 
   return (
-    <div className="flex-1 flex">
-      {/* Canvas Area */}
-      <div className="flex-1 p-8 bg-muted/10">
+    <div className="flex flex-col lg:flex-row h-full overflow-hidden pb-20 lg:pb-0">
+      {/* Main Canvas Area */}
+      <div className="flex-1 p-4 lg:p-8 bg-muted/10 overflow-auto min-w-0">
         <div className="flex justify-center">
           <div className="bg-white shadow-lg rounded-lg overflow-hidden">
-            <canvas ref={canvasRef} className="border" />
+            <canvas ref={canvasRef} className="border max-w-full h-auto" />
             {/* Hidden file input for image uploads */}
             <input ref={fileInputRef} type="file" accept="image/*" className="hidden" onChange={onImageFileChange} />
           </div>
         </div>
       </div>
 
-      {/* Right Panel - Tools & Templates */}
-      <div className="w-80 border-l bg-background p-4 overflow-y-auto">
+      {/* Desktop Tools Panel - Hidden on mobile */}
+      <div className="hidden lg:block w-80 border-l bg-background p-4 overflow-y-auto flex-shrink-0">
         {/* Toolbar */}
         <Card className="mb-6">
           <CardHeader>
@@ -497,19 +509,19 @@ export function CoverEditor() {
                 <FileText className="h-4 w-4 mr-2" />
                 {isTextEditMode ? 'Exit Text Edit' : 'Edit Text'}
               </Button>
-              <Button size="sm" onClick={addText}>
+              <Button variant="outline" size="sm" onClick={addText}>
                 <Type className="h-4 w-4 mr-1" />
                 Text
               </Button>
-              <Button size="sm" onClick={addRectangle}>
+              <Button variant="outline" size="sm" onClick={addRectangle}>
                 <Square className="h-4 w-4 mr-1" />
                 Rect
               </Button>
-              <Button size="sm" onClick={addCircle}>
+              <Button variant="outline" size="sm" onClick={addCircle}>
                 <Circle className="h-4 w-4 mr-1" />
                 Circle
               </Button>
-              <Button size="sm" onClick={() => fileInputRef.current?.click()}>
+              <Button variant="outline" size="sm" onClick={() => fileInputRef.current?.click()}>
                 <Image className="h-4 w-4 mr-1" />
                 Image
               </Button>
@@ -669,6 +681,95 @@ export function CoverEditor() {
           </CardContent>
         </Card>
       </div>
+
+      {/* Mobile Bottom Bar */}
+      <MobileBottomBar
+        mode="editor"
+        onTextEdit={async () => {
+          const newMode = !isTextEditMode
+          setIsTextEditMode(newMode)
+          
+          if (!canvas || !currentDocument || currentPageIndex === null) return
+          
+          // Clear existing objects except background
+          canvas.getObjects().forEach(obj => {
+            if (!(obj as any).isBackground) {
+              canvas.remove(obj)
+            }
+          })
+          
+          if (newMode) {
+            // Extract and add text objects
+            try {
+              const texts = await extractTextFromPDF(currentDocument.file, currentPageIndex + 1)
+              setExtractedTexts(texts)
+              
+              // Get background scale
+              const backgroundImg = canvas.getObjects().find(obj => (obj as any).isBackground)
+              const scale = backgroundImg ? (backgroundImg as any).scaleX : 1
+              
+              texts.forEach(textItem => {
+                const fabricText = new FabricTextbox(textItem.text, {
+                  left: textItem.x * scale,
+                  top: textItem.y * scale,
+                  width: textItem.width * scale,
+                  fontSize: Math.max(textItem.fontSize * scale, 8),
+                  fontFamily: 'Arial',
+                  fill: '#000000',
+                  backgroundColor: 'rgba(255, 255, 0, 0.2)',
+                  borderColor: 'rgba(255, 255, 0, 0.8)',
+                  cornerColor: 'rgba(255, 255, 0, 0.8)',
+                  transparentCorners: false,
+                  hasRotatingPoint: false
+                })
+                
+                canvas.add(fabricText)
+              })
+              
+              canvas.requestRenderAll()
+            } catch (error) {
+              console.error('Failed to extract text:', error)
+            }
+          } else {
+            canvas.requestRenderAll()
+          }
+        }}
+        onAddText={addText}
+        onAddRectangle={addRectangle}
+        onAddCircle={addCircle}
+        onAddImage={() => fileInputRef.current?.click()}
+        onClear={deletePageContent}
+        onUndo={undo}
+        onRedo={redo}
+        onSave={async () => {
+          if (!canvas) return
+          const dataUrl = canvas.toDataURL({ multiplier: 2, format: 'png' })
+          await applyCoverEditToPage(currentPageIndex ?? 0, dataUrl)
+          setEditingMode('view')
+        }}
+        onColorPicker={() => {
+          // Toggle color picker visibility or open color picker modal
+          const colorInput = document.createElement('input')
+          colorInput.type = 'color'
+          colorInput.value = selectedColor
+          colorInput.onchange = (e) => {
+            const newColor = (e.target as HTMLInputElement).value
+            setSelectedColor(newColor)
+            updateSelectedObjectColor(newColor)
+          }
+          colorInput.click()
+        }}
+        onTemplates={() => setShowTemplateModal(true)}
+        isTextEditMode={isTextEditMode}
+        selectedColor={selectedColor}
+      />
+
+      {/* Template Modal */}
+      <TemplateModal
+        isOpen={showTemplateModal}
+        onClose={() => setShowTemplateModal(false)}
+        onSelectTemplate={handleTemplateSelect}
+      />
     </div>
   )
 }

@@ -34,27 +34,31 @@ export default function HomePage() {
       <div className="min-h-screen bg-background">
         {/* Header */}
         <header className="border-b bg-background/95 backdrop-blur supports-[backdrop-filter]:bg-background/60">
-          <div className="container flex h-14 items-center">
+          <div className="container flex h-14 items-center px-2 lg:px-4">
             <Button
               variant="ghost"
               size="sm"
               onClick={handleBackToUpload}
-              className="mr-4"
+              className="mr-2 lg:mr-4"
             >
-              <ArrowLeft className="h-4 w-4 mr-2" />
-              Back to Upload
+              <ArrowLeft className="h-4 w-4 mr-1 lg:mr-2" />
+              <span className="hidden sm:inline">Back to Upload</span>
+              <span className="sm:hidden">Back</span>
             </Button>
             {editingMode === 'cover' && (
               <Button
                 variant="outline"
                 size="sm"
                 onClick={() => setEditingMode('view')}
-                className="ml-2"
+                className="ml-1 lg:ml-2"
               >
-                Exit Cover Editor
+                <span className="hidden sm:inline">Exit Cover Editor</span>
+                <span className="sm:hidden">Exit</span>
               </Button>
             )}
-            <h1 className="font-semibold">PDF Editor - {currentDocument.name}</h1>
+            <h1 className="font-semibold text-sm lg:text-base truncate flex-1 mx-2">
+              PDF Editor - {currentDocument.name}
+            </h1>
             <div className="ml-auto">
               <ThemeToggle />
             </div>
@@ -62,16 +66,16 @@ export default function HomePage() {
         </header>
 
         {/* Main editing interface */}
-        <div className="flex h-[calc(100vh-3.5rem)]">
-          {/* Sidebar with thumbnails (hidden in cover edit mode) */}
+        <div className="flex h-[calc(100vh-3.5rem)] overflow-hidden">
+          {/* Sidebar with thumbnails (hidden in cover edit mode and on mobile) */}
           {editingMode !== 'cover' && (
-            <div className="w-80 border-r bg-muted/10">
+            <div className="hidden lg:block w-80 border-r bg-muted/10 flex-shrink-0">
               <PageThumbnails />
             </div>
           )}
 
           {/* Main viewer/editor */}
-          <div className="flex-1 min-w-0">
+          <div className="flex-1 min-w-0 overflow-hidden">
             {editingMode === 'cover' ? <CoverEditor /> : <PDFViewer />}
           </div>
         </div>
