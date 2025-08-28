@@ -99,20 +99,41 @@ export function detectCoverPages(pages: PDFPage[]): string[] {
 // Render a specific PDF page at high resolution for editing
 export async function renderPDFPageHighRes(file: File, pageNumber: number, scale: number = 2): Promise<string> {
   try {
+    console.log('renderPDFPageHighRes: Starting render for page', pageNumber, 'scale', scale)
+    
+    // Ensure PDF.js worker is configured
+    pdfjs.GlobalWorkerOptions.workerSrc = '/pdf.worker.min.mjs'
+    
     const arrayBuffer = await file.arrayBuffer()
+    console.log('renderPDFPageHighRes: ArrayBuffer loaded, size:', arrayBuffer.byteLength)
+    
     const pdf = await pdfjs.getDocument({ 
       data: arrayBuffer,
       verbosity: 0,
-      stopAtErrors: false
+      stopAtErrors: false,
+      // Add compatibility options for production
+      cMapUrl: 'https://unpkg.com/pdfjs-dist@3.11.174/cmaps/',
+      cMapPacked: true,
+      standardFontDataUrl: 'https://unpkg.com/pdfjs-dist@3.11.174/standard_fonts/'
     }).promise
     
+    console.log('renderPDFPageHighRes: PDF loaded, total pages:', pdf.numPages)
+    
     const page = await pdf.getPage(pageNumber)
+    console.log('renderPDFPageHighRes: Page loaded:', pageNumber)
+    
     const viewport = page.getViewport({ scale })
+    console.log('renderPDFPageHighRes: Viewport:', viewport.width, 'x', viewport.height)
     
     const canvas = document.createElement('canvas')
-    const context = canvas.getContext('2d')!
+    const context = canvas.getContext('2d')
+    if (!context) {
+      throw new Error('Could not get canvas 2D context')
+    }
+    
     canvas.height = viewport.height
     canvas.width = viewport.width
+    console.log('renderPDFPageHighRes: Canvas created:', canvas.width, 'x', canvas.height)
     
     await page.render({
       canvasContext: context,
@@ -121,10 +142,20 @@ export async function renderPDFPageHighRes(file: File, pageNumber: number, scale
       background: 'white'
     }).promise
     
-    return canvas.toDataURL('image/png', 1.0)
+    console.log('renderPDFPageHighRes: Page rendered successfully')
+    const dataUrl = canvas.toDataURL('image/png', 1.0)
+    console.log('renderPDFPageHighRes: DataURL created, length:', dataUrl.length)
+    
+    return dataUrl
     
   } catch (error) {
-    console.error('Failed to render high-res page:', error)
+    console.error('renderPDFPageHighRes: Failed to render page:', {
+      error,
+      pageNumber,
+      scale,
+      message: error.message,
+      stack: error.stack
+    })
     // Return a placeholder image
     return 'data:image/svg+xml;base64,PHN2ZyB3aWR0aD0iNjAwIiBoZWlnaHQ9IjgwMCIgeG1sbnM9Imh0dHA6Ly93d3cudzMub3JnLzIwMDAvc3ZnIj48cmVjdCB3aWR0aD0iMTAwJSIgaGVpZ2h0PSIxMDAlIiBmaWxsPSIjZjlmYWZiIiBzdHJva2U9IiNlNWU3ZWIiIHN0cm9rZS13aWR0aD0iMiIvPjx0ZXh0IHg9IjUwJSIgeT0iNTAlIiBmb250LWZhbWlseT0iQXJpYWwiIGZvbnQtc2l6ZT0iMjQiIGZpbGw9IiM2Yjc0ODUiIHRleHQtYW5jaG9yPSJtaWRkbGUiIGR5PSIuM2VtIj5FcnJvciBMb2FkaW5nIFBhZ2U8L3RleHQ+PC9zdmc+'
   }
