@@ -8,15 +8,27 @@ import { Document, Page, pdfjs } from 'react-pdf'
 import { exportPDF } from '@/lib/pdf-utils'
 import { MobileBottomBar } from '@/components/mobile/mobile-bottom-bar'
 import { usePinchZoom } from '@/hooks/use-pinch-zoom'
+import { useEffect } from 'react'
 
-// Ensure worker is configured (also configured in lib/pdf-utils.ts)
+// Configure worker on component load
 pdfjs.GlobalWorkerOptions.workerSrc = '/pdf.worker.min.mjs'
+
+// Add styles for react-pdf
+import 'react-pdf/dist/esm/Page/AnnotationLayer.css'
+import 'react-pdf/dist/esm/Page/TextLayer.css'
 
 export function PDFViewer() {
   const { currentDocument, currentPageIndex, setCurrentPageIndex, selectedPages, setEditingMode } = usePDFStore()
   const [zoom, setZoom] = useState(1)
   const [isExporting, setIsExporting] = useState(false)
+  const [pdfError, setPdfError] = useState<string | null>(null)
   const pageRef = useRef<HTMLDivElement>(null)
+  
+  // Ensure worker is configured when component mounts
+  useEffect(() => {
+    pdfjs.GlobalWorkerOptions.workerSrc = '/pdf.worker.min.mjs'
+    console.log('PDF worker configured:', pdfjs.GlobalWorkerOptions.workerSrc)
+  }, [])
   
   // Pinch-to-zoom for mobile
   const pinchZoomRef = usePinchZoom({
@@ -126,14 +138,35 @@ export function PDFViewer() {
                   display: 'block'
                 }}
               />
+            ) : pdfError ? (
+              <div className="p-6 text-center">
+                <p className="text-red-500 mb-2">Failed to load PDF</p>
+                <p className="text-sm text-muted-foreground">{pdfError}</p>
+              </div>
             ) : (
               // Show original PDF page
-              <Document file={currentDocument.file} onLoadError={console.error} loading={<div className="p-6 text-sm text-muted-foreground">Loading PDF…</div>}>
+              <Document 
+                file={currentDocument.file} 
+                onLoadSuccess={() => {
+                  console.log('PDF loaded successfully')
+                  setPdfError(null)
+                }}
+                onLoadError={(error) => {
+                  console.error('PDF load error:', error)
+                  setPdfError(error.message || 'Failed to load PDF')
+                }} 
+                loading={<div className="p-6 text-sm text-muted-foreground">Loading PDF…</div>}
+              >
                 <Page
                   pageNumber={validPageIndex + 1}
                   scale={zoom}
                   renderAnnotationLayer={false}
                   renderTextLayer={false}
+                  onRenderSuccess={() => console.log('Page rendered successfully')}
+                  onRenderError={(error) => {
+                    console.error('Page render error:', error)
+                    setPdfError(error.message || 'Failed to render page')
+                  }}
                 />
               </Document>
             )}

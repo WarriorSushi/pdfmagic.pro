@@ -5,7 +5,10 @@ import { usePDFStore } from '@/stores/pdf-store'
 import dynamic from 'next/dynamic'
 
 const PDFUploader = dynamic(() => import('@/components/pdf/pdf-uploader').then(mod => ({ default: mod.PDFUploader })), { ssr: false })
-const PDFViewer = dynamic(() => import('@/components/pdf/pdf-viewer').then(mod => ({ default: mod.PDFViewer })), { ssr: false })
+const PDFViewer = dynamic(() => import('@/components/pdf/pdf-viewer').then(mod => ({ default: mod.PDFViewer })), { 
+  ssr: false,
+  loading: () => <div className="flex-1 flex items-center justify-center">Loading PDF viewer...</div>
+})
 const PageThumbnails = dynamic(() => import('@/components/pdf/page-thumbnails').then(mod => ({ default: mod.PageThumbnails })), { ssr: false })
 const CoverEditor = dynamic(() => import('@/components/pdf/cover-editor').then(mod => ({ default: mod.CoverEditor })), { ssr: false })
 import { Button } from '@/components/ui/button'
