@@ -54,7 +54,7 @@ export function PageThumbnails() {
                 />
                 
                 {/* Delete button in top-right corner */}
-                <div className="absolute top-1 right-1 z-20">
+                <div className="absolute top-1 right-1 z-30">
                   {deleteConfirm === page.id ? (
                     <Button
                       size="sm"
@@ -95,7 +95,7 @@ export function PageThumbnails() {
                   </div>
                 )}
                 
-                <div className="absolute inset-0 bg-black/0 group-hover:bg-black/10 transition-colors rounded flex items-center justify-center opacity-0 group-hover:opacity-100 z-0">
+                <div className="absolute inset-0 bg-black/0 group-hover:bg-black/10 transition-colors rounded flex items-center justify-center opacity-0 group-hover:opacity-100 z-5">
                   <div className="flex gap-1">
                     <Button
                       size="sm"
