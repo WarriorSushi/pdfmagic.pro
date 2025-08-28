@@ -53,7 +53,7 @@ export function CoverEditor() {
       console.log('Disposing canvas')
       fabricCanvas.dispose()
     }
-  }, [])
+  }, [canvas])
 
   // Load high-resolution PDF page as background
   const editingPage = currentDocument?.pages[currentPageIndex ?? 0] ?? currentDocument?.pages[0]
@@ -138,7 +138,7 @@ export function CoverEditor() {
     return () => {
       aborted = true
     }
-  }, [canvas, currentDocument, currentPageIndex, isTextEditMode])
+  }, [canvas, currentDocument, currentPageIndex, isTextEditMode, pageNumber])
 
   const pushHistory = () => {
     if (!canvas || suppressHistoryRef.current) return
@@ -156,7 +156,7 @@ export function CoverEditor() {
     return () => {
       canvas.off('object:modified', onModified)
     }
-  }, [canvas])
+  }, [canvas, pushHistory])
 
   const undo = async () => {
     if (!canvas) return
