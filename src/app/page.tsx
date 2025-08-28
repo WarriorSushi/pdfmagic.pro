@@ -2,10 +2,12 @@
 
 import { useState, useCallback, useEffect } from 'react'
 import { usePDFStore } from '@/stores/pdf-store'
-import { PDFUploader } from '@/components/pdf/pdf-uploader'
-import { PDFViewer } from '@/components/pdf/pdf-viewer'
-import { PageThumbnails } from '@/components/pdf/page-thumbnails'
-import { CoverEditor } from '@/components/pdf/cover-editor'
+import dynamic from 'next/dynamic'
+
+const PDFUploader = dynamic(() => import('@/components/pdf/pdf-uploader').then(mod => ({ default: mod.PDFUploader })), { ssr: false })
+const PDFViewer = dynamic(() => import('@/components/pdf/pdf-viewer').then(mod => ({ default: mod.PDFViewer })), { ssr: false })
+const PageThumbnails = dynamic(() => import('@/components/pdf/page-thumbnails').then(mod => ({ default: mod.PageThumbnails })), { ssr: false })
+const CoverEditor = dynamic(() => import('@/components/pdf/cover-editor').then(mod => ({ default: mod.CoverEditor })), { ssr: false })
 import { Button } from '@/components/ui/button'
 import { ThemeToggle } from '@/components/theme-toggle'
 import { PanelLeftClose, PanelLeftOpen, ArrowLeft, Zap, Shield, Award, Upload, Palette, Layers, Settings, Download } from 'lucide-react'
